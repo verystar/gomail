@@ -1,5 +1,5 @@
 # Gomail
-
+[![build](https://github.com/verystar/gomail/actions/workflows/build.yml/badge.svg)](https://github.com/verystar/gomail/actions/workflows/build.yml)
 
 Fork https://github.com/go-gomail/gomail
 
