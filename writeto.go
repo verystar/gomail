@@ -99,7 +99,9 @@ func (w *messageWriter) createPart(h map[string][]string) {
 
 func (w *messageWriter) closeMultipart() {
 	if w.depth > 0 {
-		w.writers[w.depth-1].Close()
+		if err := w.writers[w.depth-1].Close(); err != nil && w.err == nil {
+			w.err = err
+		}
 		w.depth--
 	}
 }
@@ -259,16 +261,25 @@ func (w *messageWriter) writeBody(f func(io.Writer) error, enc Encoding) {
 		subWriter = w.partWriter
 	}
 
-	if enc == Base64 {
+	switch enc {
+	case Base64:
 		wc := base64.NewEncoder(base64.StdEncoding, newBase64LineWriter(subWriter))
 		w.err = f(wc)
-		wc.Close()
-	} else if enc == Unencoded {
+		w.closeWriter(wc)
+	case Unencoded:
 		w.err = f(subWriter)
-	} else {
+	default:
 		wc := newQPWriter(subWriter)
 		w.err = f(wc)
-		wc.Close()
+		w.closeWriter(wc)
+	}
+}
+
+// closeWriter closes wc, keeping the first error encountered while writing the
+// body.
+func (w *messageWriter) closeWriter(wc io.Closer) {
+	if err := wc.Close(); err != nil && w.err == nil {
+		w.err = err
 	}
 }
 
@@ -289,14 +300,21 @@ func newBase64LineWriter(w io.Writer) *base64LineWriter {
 func (w *base64LineWriter) Write(p []byte) (int, error) {
 	n := 0
 	for len(p)+w.lineLen > maxLineLen {
-		w.w.Write(p[:maxLineLen-w.lineLen])
-		w.w.Write([]byte("\r\n"))
-		p = p[maxLineLen-w.lineLen:]
-		n += maxLineLen - w.lineLen
+		chunk := maxLineLen - w.lineLen
+		if _, err := w.w.Write(p[:chunk]); err != nil {
+			return n, err
+		}
+		if _, err := w.w.Write([]byte("\r\n")); err != nil {
+			return n, err
+		}
+		p = p[chunk:]
+		n += chunk
 		w.lineLen = 0
 	}
 
-	w.w.Write(p)
+	if _, err := w.w.Write(p); err != nil {
+		return n, err
+	}
 	w.lineLen += len(p)
 
 	return n + len(p), nil

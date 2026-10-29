@@ -293,7 +293,7 @@ func (m *Message) appendFile(list []*file, name string, settings []FileSetting) 
 				return err
 			}
 			if _, err := io.Copy(w, h); err != nil {
-				h.Close()
+				_ = h.Close()
 				return err
 			}
 			return h.Close()
