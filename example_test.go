@@ -74,9 +74,12 @@ func Example_daemon() {
 // Efficiently send a customized newsletter to a list of recipients.
 func Example_newsletter() {
 	// The list of recipients.
-	var list []struct {
+	list := []struct {
 		Name    string
 		Address string
+	}{
+		{Name: "Alice", Address: "alice@example.com"},
+		{Name: "Bob", Address: "bob@example.com"},
 	}
 
 	d := gomail.NewDialer("smtp.example.com", 587, "user", "123456")
